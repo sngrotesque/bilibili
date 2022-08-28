@@ -1,5 +1,4 @@
 import BLBL
-import ssl
 
 up_mid                     = '12073864' # UP主的UID，不知道如何获取的话请百度
 PictureLinkArchiveFilePath = '' # 保存有图片链接的文件路径（留空就视为从头开始爬取）
