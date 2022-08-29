@@ -13,11 +13,8 @@ import re
 
 def CreateFileName(PictureArchivePath :str, UID :str, link):
     """创建用来存档的文件名"""
-    return PictureArchivePath +\
-        '/' + UID + '_' + re.findall(
-        r'https://[\w\d.]+/bfs/article/'
-        r'(?:\w+/)?'
-        r'([\d\w]+.\w+)', link, re.S | re.I)[0]
+    return PictureArchivePath + '/' + UID + '_' + \
+    re.findall(r'https://[\w\d.]+/bfs/article/(?:\w+/)?([\d\w]+.\w+)', link, re.S | re.I)[0]
 
 def CheckArchivePictureLinks(self, PictureArchivePath: str, PictureLinkArchiveFilePath :str = None):
     '''检查图片链接存档文件是否有问题，以及处理一些事情'''
@@ -84,57 +81,44 @@ class article:
             'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.81 Safari/537.36 Edg/104.0.1293.54'
         }
 
-        # 图片大小阈值，小于此大小会被忽略，用于过滤垃圾图片
-        self.PictureSize = 64 * 1024 ** 1
-
-        self.results_article_links = [] # 用来存放所有专栏的对应文章链接
+        self.PictureSize = 65536 # 过滤垃圾图片的文件大小阈值(单位: Bytes)
+        self.results_article_links  = [] # 用来存放所有专栏的对应文章链接
         self.results_pictures_links = [] # 用来存放所有专栏中对应图片链接
         
         print(f'>>>> 此轮UP主UID: {self.DEFINED_mid}')
-        try:
-            re.findall(r"[^\d+]", self.DEFINED_mid, re.S | re.I)[0]
-            exit(f'>--< 错误UID，请勿含有非数字字符！')
-        except IndexError:
-            pass
+        try: re.findall(r"[^\d+]", self.DEFINED_mid, re.S | re.I)[0]; exit(f'>--< 错误UID，请勿含有非数字字符！')
+        except IndexError: pass
 
     @property
     def GetLinksToAllArticles(self):
-        '''获取指定up主的所有专栏的对应文章链接
-        '''
+        '''获取指定up主的所有专栏的对应文章链接'''
         # 设定一个比较大的数以获取所有专栏，可以用while循环来做但是我不想
-        for pn in range(1, 65536):
+        for pn in range(1, 16777217):
             print(f'>>>> 正在获取专栏第{pn}页的内容...')
             url = f'https://api.bilibili.com/x/space/article?mid={self.DEFINED_mid}&pn={pn}&ps=12&sort=publish_time'
             res = rget(url, headers = self.DEFINED_HTTP_Headers).json()
             
-            # 通过获取的数据的某一段长度来判断专栏是否爬取完毕
-            try:
+            try: # 通过获取的数据的某一段长度来判断专栏是否爬取完毕
                 if len(res['data']) == 3: print(f'>>>> 获取完毕.'); break
-            except KeyError:
-                exit(f'>--< 请检查UID是否正确或此UP主是否发布过专栏！')
+            except KeyError: exit(f'>--< 请检查UID是否正确或此UP主是否发布过专栏！')
             
-            # 每一个json数据里有最多12个专栏的id
-            # 将这些id与网址拼接起来存入变量
-            for x in range(len(res['data']['articles'])):
-                self.results_article_links.append(f"https://www.bilibili.com/read/cv{res['data']['articles'][x]['id']}")
-                
-                # 随机休眠一段时间，模拟人类访问
-                sleep(rand_float(0, self.DEFINED_MaximumTimeOfRandomSleep))
+            # 每一个json数据里有最多12个专栏的id，将这些id与网址拼接起来存入变量
+            for index in range(len(res['data']['articles'])):
+                self.results_article_links.append(f"https://www.bilibili.com/read/cv{res['data']['articles'][index]['id']}")
+                sleep(rand_float(0, self.DEFINED_MaximumTimeOfRandomSleep)) # 随机休眠一段时间，模拟人类访问
 
     @property
     def GetLinksToAllPictures(self):
-        '''获取指定up主的所有专栏的对应图片链接
-        '''
-        self.GetLinksToAllArticles # 获取所有的文章链接
-        
-        # 在self.PictureLinkDirectoryName目录中创建一个文件用来写入图片的链接
-        for url in self.results_article_links:
-            print(f'>>>> 正在获取{url}中所有图片链接.')
-            res = rget(url, headers = self.DEFINED_HTTP_Headers).text
-            res = etree.HTML(res).xpath('/html/body/div/div/div/div/div/div/figure/img/@data-src')
-            for link in res:
-                if 'https:' not in link: link = f'https:{link}'
-                self.results_pictures_links.append(link)
+        '''获取指定up主的所有专栏的对应图片链接(获取所有的文章链接，然后通过专栏链接获取内部所有图片链接)'''
+        self.GetLinksToAllArticles
+        for article_url in self.results_article_links:
+            print(f'>>>> 正在获取{article_url}中所有图片链接.')
+            articlePicturesHTML = rget(article_url, headers = self.DEFINED_HTTP_Headers).text
+            articlePicturesHTML = etree.HTML(articlePicturesHTML).xpath(
+            '/html/body/div/div/div/div/div/div/figure/img/@data-src')
+            for articlePictureLink in articlePicturesHTML:
+                if 'https:' not in articlePictureLink: articlePictureLink = f'https:{articlePictureLink}'
+                self.results_pictures_links.append(articlePictureLink)
 
     def DownloadAllPictures(self, PictureArchivePath :str, PictureLinkArchiveFilePath :str = None):
         '''将图片存档至用户指定的目录中，如果目录不存在将创建
@@ -149,21 +133,18 @@ class article:
             except IndexError:
                 # 因为部分图片链接中会有B站动图的GIF文件，所以采取过滤机制，并开始下载下一张图片
                 print(f'>>>> {NumberOfPicturesSaved:0>4} {link}非正常图片，跳过...')
-                NumberOfPicturesSaved += 1
-                continue
+                NumberOfPicturesSaved += 1; continue
             if exists(PictureFilePath):
                 # 如果存档路径存在同名文件则跳过，主要用在使用此库时突然退出的情况，并开始下载下一张图片
                 print(f'>>>> {NumberOfPicturesSaved:0>4} {PictureFilePath}已存在，跳过...')
-                NumberOfPicturesSaved += 1
-                continue
+                NumberOfPicturesSaved += 1; continue
             
             # 下载图片用于存档
             PictureData = rget(link, headers = self.DEFINED_HTTP_Headers).content
             if len(PictureData) < self.PictureSize:
                 # 如果图片小于self.PictureSize设定的值，并开始下载下一张图片
                 print(f'>>>> {NumberOfPicturesSaved:0>4} {link}图片过小: {len(PictureData)} Bytes，忽略...')
-                NumberOfPicturesSaved += 1
-                continue
+                NumberOfPicturesSaved += 1; continue
             
             # 确保没有垃圾图片与重名文件的话就保存数据至文件
             with open(PictureFilePath, 'wb') as f:
