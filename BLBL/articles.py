@@ -1,4 +1,5 @@
 from requests import get as rget
+from threading import Thread
 from lxml import etree
 from time import sleep
 from random import uniform as rand_float
@@ -6,10 +7,45 @@ from os import mkdir
 from os.path import exists, isfile
 import re
 
-def temp_var(uid = None):
-    389328307
-    12073864
-    355576491
+389328307
+12073864
+355576491
+
+def CreateFileName(PictureArchivePath :str, UID :str, link):
+    """创建用来存档的文件名"""
+    return PictureArchivePath +\
+        '/' + UID + '_' + re.findall(
+        r'https://[\w\d.]+/bfs/article/'
+        r'(?:\w+/)?'
+        r'([\d\w]+.\w+)', link, re.S | re.I)[0]
+
+def CheckArchivePictureLinks(self, PictureArchivePath: str, PictureLinkArchiveFilePath :str = None):
+    '''检查图片链接存档文件是否有问题，以及处理一些事情'''
+    if PictureLinkArchiveFilePath: # 如果PictureLinkArchiveFilePath不为空
+        if exists(PictureLinkArchiveFilePath): # 如果PictureLinkArchiveFilePathh指向的文件存在
+            with open(PictureLinkArchiveFilePath, 'r', encoding='ascii') as f:
+                try: # 用ASCII做编码格式检测文件是否合理
+                    self.results_pictures_links = f.read().strip('\n').split('\n')
+                except UnicodeDecodeError:
+                    exit(f'>--< 请检查图片链接存档文件内容是否含有非英文字符')
+        else: # 如果PictureLinkArchiveFilePathh指向的文件不存在
+            exit(f'>--< 图片链接存档文件不存在，请检查！\n'
+                f'>--< 图片链接存档文件路径: {PictureLinkArchiveFilePath}')
+    else: # 如果PictureLinkArchiveFilePath为空，就从头获取图片链接
+        self.GetLinksToAllPictures
+    
+    # 如果self.results_pictures_links为空
+    if not self.results_pictures_links or not self.results_pictures_links[0]:
+        exit(f'>--< 未获取到任何图片链接，请检查你的配置！\n'
+            f'>--< UP主UID: {self.DEFINED_mid}\n'
+            f'>--< 图片链接存档文件路径: {PictureLinkArchiveFilePath}\n'
+            f'>--< 如果确认无误，请联系此程序开发者进行修复！')
+
+    if not exists(PictureArchivePath): # 如果PictureArchivePath指向的目录不存在
+        print(f'>--< 用于存档图片的目录不存在，将创建...')
+        mkdir(PictureArchivePath)
+    elif isfile(PictureArchivePath): # 如果PictureArchivePath指向的是文件
+        exit(f'>--< 用于存档图片的路径不是文件夹！')
 
 class article:
     '''帮助文档
@@ -47,6 +83,9 @@ class article:
             'referer': f'https://space.bilibili.com/{self.DEFINED_mid}/article',
             'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.81 Safari/537.36 Edg/104.0.1293.54'
         }
+
+        # 图片大小阈值，小于此大小会被忽略，用于过滤垃圾图片
+        self.PictureSize = 64 * 1024 ** 1
 
         self.results_article_links = [] # 用来存放所有专栏的对应文章链接
         self.results_pictures_links = [] # 用来存放所有专栏中对应图片链接
@@ -90,62 +129,66 @@ class article:
         
         # 在self.PictureLinkDirectoryName目录中创建一个文件用来写入图片的链接
         for url in self.results_article_links:
-            print(f'>>>> 正在获取{url}中所有图片链接...')
+            print(f'>>>> 正在获取{url}中所有图片链接.')
             res = rget(url, headers = self.DEFINED_HTTP_Headers).text
             res = etree.HTML(res).xpath('/html/body/div/div/div/div/div/div/figure/img/@data-src')
-            print(f'>>>> 已获取{len(res)}个图片链接.')
             for link in res:
                 if 'https:' not in link: link = f'https:{link}'
                 self.results_pictures_links.append(link)
 
     def DownloadAllPictures(self, PictureArchivePath :str, PictureLinkArchiveFilePath :str = None):
         '''将图片存档至用户指定的目录中，如果目录不存在将创建
-        可使用变量PictureLinkArchiveFilePath来指定读取用于存放图片链接的文件
-        '''
-        if PictureLinkArchiveFilePath:
-            if exists(PictureLinkArchiveFilePath):
-                with open(PictureLinkArchiveFilePath, 'r', encoding='ascii') as f:
-                    try:
-                        self.results_pictures_links = f.read().strip('\n').split('\n')
-                    except UnicodeDecodeError:
-                        exit(f'>--< 请检查图片链接存档文件内容是否含有非英文字符')
-            else:
-                exit(f'>--< 图片链接存档文件不存在，请检查！\n'
-                    f'>--< 图片链接存档文件路径: {PictureLinkArchiveFilePath}')
-        else: self.GetLinksToAllPictures
-        if not self.results_pictures_links or not self.results_pictures_links[0]:
-            exit(f'>--< 未获取到任何图片链接，请检查你的配置！\n'
-                f'>--< UP主UID: {self.DEFINED_mid}\n'
-                f'>--< 图片链接存档文件路径: {PictureLinkArchiveFilePath}\n'
-                f'>--< 如果确认无误，请联系此程序开发者进行修复！')
+        可使用变量PictureLinkArchiveFilePath来指定读取用于存放图片链接的文件'''
+        CheckArchivePictureLinks(self, PictureArchivePath, PictureLinkArchiveFilePath)
 
-        if not exists(PictureArchivePath):
-            print(f'>--< 用于存档图片的目录不存在，将创建...')
-            mkdir(PictureArchivePath)
-        elif isfile(PictureArchivePath):
-            exit(f'>--< 用于存档图片的路径不是文件夹！')
-
-        # 图片大小阈值，小于此大小会被忽略，用于过滤垃圾图片
-        PictureSize = 64 * 1024 ** 1
-
+        NumberOfPicturesSaved = 1 # 用作标注当前是第几个图片
         for link in self.results_pictures_links:
-            # 为单个图片文件命名
-            PictureFilePath = PictureArchivePath + '/' + self.DEFINED_mid + '_' + re.findall(
-                r'https://[\w\d.]+/bfs/article/'
-                r'(?:\w+/)?'
-                r'([\d\w]+.\w+)', link, re.S | re.I)[0]
+            try:
+                # 为单个图片文件命名，使用UP主UID与图片h本身的SHA1值名
+                PictureFilePath = CreateFileName(PictureArchivePath, self.DEFINED_mid, link)
+            except IndexError:
+                # 因为部分图片链接中会有B站动图的GIF文件，所以采取过滤机制，并开始下载下一张图片
+                print(f'>>>> {NumberOfPicturesSaved:0>4} {link}非正常图片，跳过...')
+                NumberOfPicturesSaved += 1
+                continue
             if exists(PictureFilePath):
-                print(f'>>>> {PictureFilePath}已存在，跳过...')
+                # 如果存档路径存在同名文件则跳过，主要用在使用此库时突然退出的情况，并开始下载下一张图片
+                print(f'>>>> {NumberOfPicturesSaved:0>4} {PictureFilePath}已存在，跳过...')
+                NumberOfPicturesSaved += 1
                 continue
             
             # 下载图片用于存档
             PictureData = rget(link, headers = self.DEFINED_HTTP_Headers).content
-            if len(PictureData) < PictureSize:
-                print(f'>>>> {link}图片过小: {len(PictureData)} Bytes，忽略...')
+            if len(PictureData) < self.PictureSize:
+                # 如果图片小于self.PictureSize设定的值，并开始下载下一张图片
+                print(f'>>>> {NumberOfPicturesSaved:0>4} {link}图片过小: {len(PictureData)} Bytes，忽略...')
+                NumberOfPicturesSaved += 1
                 continue
             
             # 确保没有垃圾图片与重名文件的话就保存数据至文件
             with open(PictureFilePath, 'wb') as f:
                 f.write(PictureData)
-                print(f'>>>> 已保存图片: {link}')
+                print(f'>>>> {NumberOfPicturesSaved:0>4} 已保存图片: {link[-44:]}')
+            NumberOfPicturesSaved += 1
+
+    def MultiThreadDownloadPictures(self, PictureArchivePath :str, PictureLinkArchiveFilePath :str = None):
+        '''使用多线程下载图片 (此函数正在开发中，如果你看到这句话，请不要使用它)'''
+        CheckArchivePictureLinks(self, PictureArchivePath, PictureLinkArchiveFilePath)
+
+        print(self.results_pictures_links)
+        exit(0)
+        # 如果不存在用户存档图片的文件夹就创建一个
+        if not exists(PictureArchivePath):
+            mkdir(PictureArchivePath)
+        
+        # 开始调用MultiThreadDownload函数，创建Number_of_threads个线程
+        Number_of_threads = 4
+        th = [Thread(target = None, args = (self.results_pictures_links, x))
+            for x in range(Number_of_threads)]
+        for x in th: x.start()
+        for x in th: x.join()
+
+        # 多线程执行完毕之后检测是否存在遗漏
+        url_residue = len(self.results_pictures_links) % 4
+
 
