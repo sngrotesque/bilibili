@@ -7,10 +7,6 @@ from os import mkdir
 from os.path import exists, isfile
 import re
 
-389328307
-12073864
-355576491
-
 def CreateFileName(PictureArchivePath :str, UID :str, link):
     """创建用来存档的文件名"""
     return PictureArchivePath + '/' + UID + '_' + \
@@ -44,6 +40,9 @@ def CheckArchivePictureLinks(self, PictureArchivePath: str, PictureLinkArchiveFi
     elif isfile(PictureArchivePath): # 如果PictureArchivePath指向的是文件
         exit(f'>--< 用于存档图片的路径不是文件夹！')
 
+def fwrite(filePath, fileData):
+    with open(filePath, 'wb') as f: f.write(fileData)
+
 class article:
     '''帮助文档
     
@@ -67,11 +66,18 @@ class article:
         爬取结果存入类中results_pictures_links变量
     关于下载图片
         下载时程序会忽略掉小于32kb的图片(因为极有可能是B站的UI图片)
-        使用requests库的get类中的content方法
-        
         你可以使用保存的图片链接的那个txt文件来批量下载
         也可以从头开始获取专栏链接清洗出图片链接批量下载
         函数为 DownloadAllPictures
+    关于杂项(垃圾)图片
+        因为是下载指定UP主所有专栏中的所有图片
+        所以难免可能会下载到一些你不想要的内容
+        关于此问题的处理：
+            图片保存完成之后，打开文件夹，排序方式：文件大小(从小到大)
+            然后手动一个一个删除不需要的图片文件
+        为什么不在代码内设置一个杂项(垃圾)图片过滤器：
+            因为你下载的图片我并不能确定是什么样的
+            所以直接添加这种功能可能会导致你所需要的图片被过滤掉
     '''
     def __init__(self, mid: str, MaximumTimeOfRandomSleep :float = 0):
         self.DEFINED_mid = mid
@@ -127,11 +133,9 @@ class article:
 
         NumberOfPicturesSaved = 1 # 用作标注当前是第几个图片
         for link in self.results_pictures_links:
-            try:
-                # 为单个图片文件命名，使用UP主UID与图片h本身的SHA1值名
+            try: # 为单个图片文件命名，使用UP主UID与图片h本身的SHA1值名
                 PictureFilePath = CreateFileName(PictureArchivePath, self.DEFINED_mid, link)
-            except IndexError:
-                # 因为部分图片链接中会有B站动图的GIF文件，所以采取过滤机制，并开始下载下一张图片
+            except IndexError: # 因为部分图片链接中会有B站动图的GIF文件，所以采取过滤机制，并开始下载下一张图片
                 print(f'>>>> {NumberOfPicturesSaved:0>4} {link}非正常图片，跳过...')
                 NumberOfPicturesSaved += 1; continue
             if exists(PictureFilePath):
@@ -139,32 +143,27 @@ class article:
                 print(f'>>>> {NumberOfPicturesSaved:0>4} {PictureFilePath}已存在，跳过...')
                 NumberOfPicturesSaved += 1; continue
             
-            # 下载图片用于存档
             PictureData = rget(link, headers = self.DEFINED_HTTP_Headers).content
-            if len(PictureData) < self.PictureSize:
-                # 如果图片小于self.PictureSize设定的值，并开始下载下一张图片
+            if len(PictureData) < self.PictureSize: # 如果图片小于self.PictureSize设定的值就处理下一张
                 print(f'>>>> {NumberOfPicturesSaved:0>4} {link}图片过小: {len(PictureData)} Bytes，忽略...')
                 NumberOfPicturesSaved += 1; continue
             
-            # 确保没有垃圾图片与重名文件的话就保存数据至文件
-            with open(PictureFilePath, 'wb') as f:
-                f.write(PictureData)
-                print(f'>>>> {NumberOfPicturesSaved:0>4} 已保存图片: {link[-44:]}')
+            fwrite(PictureFilePath, PictureData)
+            print(f'>>>> {NumberOfPicturesSaved:0>4} 已保存图片: {link[-44:]}')
             NumberOfPicturesSaved += 1
 
     def MultiThreadDownloadPictures(self, PictureArchivePath :str, PictureLinkArchiveFilePath :str = None):
         '''使用多线程下载图片 (此函数正在开发中，如果你看到这句话，请不要使用它)'''
         CheckArchivePictureLinks(self, PictureArchivePath, PictureLinkArchiveFilePath)
-
-        print(self.results_pictures_links)
-        exit(0)
-        # 如果不存在用户存档图片的文件夹就创建一个
-        if not exists(PictureArchivePath):
-            mkdir(PictureArchivePath)
+        
+        def ThreadDownload(pictures_links_list :list, ThreadSerialNumber :int, Number_of_threads :int):
+            for _ in range(len(pictures_links_list) // Number_of_threads):
+                print(f'>>>> {ThreadSerialNumber+1 :>4} - {pictures_links_list[ThreadSerialNumber]}')
+                ThreadSerialNumber += Number_of_threads
         
         # 开始调用MultiThreadDownload函数，创建Number_of_threads个线程
-        Number_of_threads = 4
-        th = [Thread(target = None, args = (self.results_pictures_links, x))
+        Number_of_threads = 6
+        th = [Thread(target = ThreadDownload, args = (self.results_pictures_links, x, Number_of_threads))
             for x in range(Number_of_threads)]
         for x in th: x.start()
         for x in th: x.join()
