@@ -153,22 +153,57 @@ class article:
             NumberOfPicturesSaved += 1
 
     def MultiThreadDownloadPictures(self, PictureArchivePath :str, PictureLinkArchiveFilePath :str = None):
-        '''使用多线程下载图片 (此函数正在开发中，如果你看到这句话，请不要使用它)'''
+        '''使用多线程下载图片(默认8线程)，参数使用方法同DownloadAllPictures函数'''
         CheckArchivePictureLinks(self, PictureArchivePath, PictureLinkArchiveFilePath)
         
         def ThreadDownload(pictures_links_list :list, ThreadSerialNumber :int, Number_of_threads :int):
             for _ in range(len(pictures_links_list) // Number_of_threads):
-                print(f'>>>> {ThreadSerialNumber+1 :>4} - {pictures_links_list[ThreadSerialNumber]}')
+                link = pictures_links_list[ThreadSerialNumber] # 将变量名统一
+                
+                try: # 为单个图片文件命名，使用UP主UID与图片h本身的SHA1值名
+                    PictureFilePath = CreateFileName(PictureArchivePath, self.DEFINED_mid, link)
+                except IndexError: # 因为部分图片链接中会有B站动图的GIF文件，所以采取过滤机制，并开始下载下一张图片
+                    print(f'>>>> {ThreadSerialNumber+1:0>4} {link}非正常图片，跳过...')
+                    ThreadSerialNumber += Number_of_threads; continue
+                if exists(PictureFilePath):
+                    # 如果存档路径存在同名文件则跳过，主要用在使用此库时突然退出的情况，并开始下载下一张图片
+                    print(f'>>>> {ThreadSerialNumber+1:0>4} {PictureFilePath}已存在，跳过...')
+                    ThreadSerialNumber += Number_of_threads; continue
+
+                PictureData = rget(link, headers = self.DEFINED_HTTP_Headers).content
+                if len(PictureData) < self.PictureSize: # 如果图片小于self.PictureSize设定的值就处理下一张
+                    print(f'>>>> {ThreadSerialNumber+1:0>4} {link}图片过小: {len(PictureData)} Bytes，忽略...')
+                    ThreadSerialNumber += Number_of_threads; continue
+
+                fwrite(PictureFilePath, PictureData)
+                print(f'>>>> {ThreadSerialNumber+1:0>4} 已保存图片: {link[-44:]}')
                 ThreadSerialNumber += Number_of_threads
         
         # 开始调用MultiThreadDownload函数，创建Number_of_threads个线程
-        Number_of_threads = 6
+        Number_of_threads = 8
         th = [Thread(target = ThreadDownload, args = (self.results_pictures_links, x, Number_of_threads))
             for x in range(Number_of_threads)]
         for x in th: x.start()
         for x in th: x.join()
 
         # 多线程执行完毕之后检测是否存在遗漏
-        url_residue = len(self.results_pictures_links) % 4
-
+        TotalPictureLinks = len(self.results_pictures_links)
+        url_residue = TotalPictureLinks % Number_of_threads
+        for index in range(TotalPictureLinks - url_residue, TotalPictureLinks):
+            link = self.results_pictures_links[index] # 将变量名统一
+            try: # 为单个图片文件命名，使用UP主UID与图片h本身的SHA1值名
+                PictureFilePath = CreateFileName(PictureArchivePath, self.DEFINED_mid, link)
+            except IndexError: # 因为部分图片链接中会有B站动图的GIF文件，所以采取过滤机制，并开始下载下一张图片
+                print(f'>>>> {index+1:0>4} {link}非正常图片，跳过...')
+                continue
+            if exists(PictureFilePath):
+                # 如果存档路径存在同名文件则跳过，主要用在使用此库时突然退出的情况，并开始下载下一张图片
+                print(f'>>>> {index+1:0>4} {PictureFilePath}已存在，跳过...')
+                continue
+            PictureData = rget(link, headers = self.DEFINED_HTTP_Headers).content
+            if len(PictureData) < self.PictureSize: # 如果图片小于self.PictureSize设定的值就处理下一张
+                print(f'>>>> {index+1:0>4} {link}图片过小: {len(PictureData)} Bytes，忽略...')
+                continue
+            fwrite(PictureFilePath, PictureData)
+            print(f'>>>> {index+1:0>4} 已保存图片: {link[-44:]}')
 
