@@ -20,9 +20,4 @@ up_uid_list = [
     '28012895',  '25649606',   '27642052',   '354561434'
 ]
 
-res = BLBL.up_info('389328307')
-print(res.GetUpAvatar)
-
-
-
 
