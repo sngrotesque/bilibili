@@ -1,11 +1,4 @@
-from requests import get as rget
-from threading import Thread
-from lxml import etree
-from time import sleep
-from random import uniform as rand_float
-from os import mkdir
-from os.path import exists, isfile
-import re
+from .utils import *
 
 def CreateFileName(PictureArchivePath :str, UID :str, link):
     """创建用来存档的文件名"""
@@ -39,9 +32,6 @@ def CheckArchivePictureLinks(self, PictureArchivePath: str, PictureLinkArchiveFi
         mkdir(PictureArchivePath)
     elif isfile(PictureArchivePath): # 如果PictureArchivePath指向的是文件
         exit(f'>--< 用于存档图片的路径不是文件夹！')
-
-def fwrite(filePath, fileData):
-    with open(filePath, 'wb') as f: f.write(fileData)
 
 class article:
     '''帮助文档
