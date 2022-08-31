@@ -3,6 +3,7 @@ from .utils import *
 UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.81 Safari/537.36 Edg/104.0.1293.54'
 
 class up_info:
+    '''通过UID获取UP主的各种信息，不过小心批量爬取会被封IP'''
     def __init__(self, mid :str):
         self.DEFINED_mid = mid
         self.DEFINED_INFO_HTTP_Headers = {
