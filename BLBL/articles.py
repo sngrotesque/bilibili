@@ -36,10 +36,8 @@ def CheckArchivePictureLinks(self, PictureArchivePath: str, PictureLinkArchiveFi
 class article:
     '''帮助文档
     
-    此类需要两个参数
-        mid与MaximumTimeOfRandomSleep
-    mid为UP主UID，是必需的。
-    MaximumTimeOfRandomSleep为随机休眠的最长时间，用于规避哔哩哔哩的反爬虫机制。
+    此类需要一个参数
+        mid为UP主UID，是必需的。
     
     关于爬取专栏链接
         此程序将按照UP主的发布时间排序以爬取专栏
@@ -69,9 +67,8 @@ class article:
             因为你下载的图片我并不能确定是什么样的
             所以直接添加这种功能可能会导致你所需要的图片被过滤掉
     '''
-    def __init__(self, mid: str, MaximumTimeOfRandomSleep :float = 0):
+    def __init__(self, mid: str):
         self.DEFINED_mid = mid
-        self.DEFINED_MaximumTimeOfRandomSleep = MaximumTimeOfRandomSleep
         self.DEFINED_HTTP_Headers = { # 设定HTTP请求头
             'referer': f'https://space.bilibili.com/{self.DEFINED_mid}/article',
             'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.81 Safari/537.36 Edg/104.0.1293.54'
@@ -101,7 +98,6 @@ class article:
             # 每一个json数据里有最多12个专栏的id，将这些id与网址拼接起来存入变量
             for index in range(len(res['data']['articles'])):
                 self.results_article_links.append(f"https://www.bilibili.com/read/cv{res['data']['articles'][index]['id']}")
-                sleep(rand_float(0, self.DEFINED_MaximumTimeOfRandomSleep)) # 随机休眠一段时间，模拟人类访问
 
     @property
     def GetLinksToAllPictures(self):

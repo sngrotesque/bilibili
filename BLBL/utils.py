@@ -12,4 +12,5 @@ def fwrite(filePath, fileData):
         f.write(fileData)
     return
 
-
+def timeSleep(min_value = 0, max_value = None):
+    sleep(rand_float(min_value, max_value))
